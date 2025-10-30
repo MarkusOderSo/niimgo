@@ -1,0 +1,178 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      version: ${{ steps.get_version.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ steps.get_version.outputs.version }}
+          draft: false
+          prerelease: false
+
+  build:
+    name: Build for ${{ matrix.os }}-${{ matrix.arch }}
+    needs: release
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          # Linux
+          - os: linux
+            arch: amd64
+            goos: linux
+            goarch: amd64
+          - os: linux
+            arch: arm64
+            goos: linux
+            goarch: arm64
+          - os: linux
+            arch: arm
+            goos: linux
+            goarch: arm
+            goarm: 7
+
+          # macOS
+          - os: darwin
+            arch: amd64
+            goos: darwin
+            goarch: amd64
+          - os: darwin
+            arch: arm64
+            goos: darwin
+            goarch: arm64
+
+          # Windows
+          - os: windows
+            arch: amd64
+            goos: windows
+            goarch: amd64
+          - os: windows
+            arch: arm64
+            goos: windows
+            goarch: arm64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.22'
+
+      - name: Get dependencies
+        run: go mod download
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          GOARM: ${{ matrix.goarm }}
+        run: |
+          if [ "${{ matrix.os }}" = "windows" ]; then
+            go build -v -o niimgo-${{ matrix.os }}-${{ matrix.arch }}.exe ./cmd
+          else
+            go build -v -o niimgo-${{ matrix.os }}-${{ matrix.arch }} ./cmd
+          fi
+
+      - name: Create archive (Unix)
+        if: matrix.os != 'windows'
+        run: |
+          tar czf niimgo-${{ needs.release.outputs.version }}-${{ matrix.os }}-${{ matrix.arch }}.tar.gz \
+            niimgo-${{ matrix.os }}-${{ matrix.arch }} \
+            README.md \
+            LICENSE 2>/dev/null || tar czf niimgo-${{ needs.release.outputs.version }}-${{ matrix.os }}-${{ matrix.arch }}.tar.gz \
+            niimgo-${{ matrix.os }}-${{ matrix.arch }} \
+            README.md
+
+      - name: Create archive (Windows)
+        if: matrix.os == 'windows'
+        run: |
+          zip niimgo-${{ needs.release.outputs.version }}-${{ matrix.os }}-${{ matrix.arch }}.zip \
+            niimgo-${{ matrix.os }}-${{ matrix.arch }}.exe \
+            README.md \
+            LICENSE 2>/dev/null || zip niimgo-${{ needs.release.outputs.version }}-${{ matrix.os }}-${{ matrix.arch }}.zip \
+            niimgo-${{ matrix.os }}-${{ matrix.arch }}.exe \
+            README.md
+
+      - name: Upload Release Asset (Unix)
+        if: matrix.os != 'windows'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.release.outputs.upload_url }}
+          asset_path: ./niimgo-${{ needs.release.outputs.version }}-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
+          asset_name: niimgo-${{ needs.release.outputs.version }}-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Upload Release Asset (Windows)
+        if: matrix.os == 'windows'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.release.outputs.upload_url }}
+          asset_path: ./niimgo-${{ needs.release.outputs.version }}-${{ matrix.os }}-${{ matrix.arch }}.zip
+          asset_name: niimgo-${{ needs.release.outputs.version }}-${{ matrix.os }}-${{ matrix.arch }}.zip
+          asset_content_type: application/zip
+
+      - name: Generate checksums (Unix)
+        if: matrix.os != 'windows'
+        run: |
+          sha256sum niimgo-${{ needs.release.outputs.version }}-${{ matrix.os }}-${{ matrix.arch }}.tar.gz > \
+            niimgo-${{ needs.release.outputs.version }}-${{ matrix.os }}-${{ matrix.arch }}.tar.gz.sha256
+
+      - name: Generate checksums (Windows)
+        if: matrix.os == 'windows'
+        run: |
+          sha256sum niimgo-${{ needs.release.outputs.version }}-${{ matrix.os }}-${{ matrix.arch }}.zip > \
+            niimgo-${{ needs.release.outputs.version }}-${{ matrix.os }}-${{ matrix.arch }}.zip.sha256
+
+      - name: Upload checksum (Unix)
+        if: matrix.os != 'windows'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.release.outputs.upload_url }}
+          asset_path: ./niimgo-${{ needs.release.outputs.version }}-${{ matrix.os }}-${{ matrix.arch }}.tar.gz.sha256
+          asset_name: niimgo-${{ needs.release.outputs.version }}-${{ matrix.os }}-${{ matrix.arch }}.tar.gz.sha256
+          asset_content_type: text/plain
+
+      - name: Upload checksum (Windows)
+        if: matrix.os == 'windows'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.release.outputs.upload_url }}
+          asset_path: ./niimgo-${{ needs.release.outputs.version }}-${{ matrix.os }}-${{ matrix.arch }}.zip.sha256
+          asset_name: niimgo-${{ needs.release.outputs.version }}-${{ matrix.os }}-${{ matrix.arch }}.zip.sha256
+          asset_content_type: text/plain
+

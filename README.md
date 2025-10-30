@@ -19,6 +19,27 @@ A pure Go implementation for controlling Niimbot label printers via USB serial c
 
 ## 📦 Installation
 
+### Download prebuilt binaries
+
+Download the latest release for your platform from the [Releases page](https://github.com/MarkusOderSo/niimgo/releases):
+
+- **Linux**: `niimgo-vX.X.X-linux-amd64.tar.gz` (Intel/AMD 64-bit)
+- **Linux ARM**: `niimgo-vX.X.X-linux-arm64.tar.gz` (ARM 64-bit, e.g., Raspberry Pi 4)
+- **Linux ARM**: `niimgo-vX.X.X-linux-arm.tar.gz` (ARM 32-bit, e.g., older Raspberry Pi)
+- **macOS**: `niimgo-vX.X.X-darwin-amd64.tar.gz` (Intel Mac)
+- **macOS**: `niimgo-vX.X.X-darwin-arm64.tar.gz` (Apple Silicon M1/M2/M3)
+- **Windows**: `niimgo-vX.X.X-windows-amd64.zip` (Intel/AMD 64-bit)
+
+Extract and run:
+```bash
+# Linux/macOS
+tar xzf niimgo-*.tar.gz
+sudo ./niimgo-* -port /dev/ttyACM0 image.png
+
+# Windows
+# Extract the zip and run niimgo-windows-amd64.exe
+```
+
 ### Build from source
 
 ```bash

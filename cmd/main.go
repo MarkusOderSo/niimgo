@@ -9,7 +9,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/YOUR_USERNAME/niimgo/niimprint"
+	"github.com/MarkusOderSo/niimgo/niimprint"
 
 	"github.com/nfnt/resize"
 )
