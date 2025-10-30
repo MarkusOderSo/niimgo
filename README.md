@@ -1,143 +1,165 @@
-# Niimbot D110 Go Client
+# niimgo
 
-Eine Go-Implementierung des Niimbot D110 Etikettendruckers, portiert von der Python-Bibliothek [niimprint](https://github.com/kjy00302/niimprint).
+> A Go client for Niimbot label printers (D110, D11, and compatible models)
 
-## Features
+[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.21-blue.svg)](https://go.dev/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-- ✅ Serielle USB-Kommunikation (wie die Original-Python-Version)
-- ✅ Automatische Port-Erkennung
-- ✅ Unterstützung für Niimbot D110 (40x12mm Etiketten)
-- ✅ Bildverarbeitung (automatische Größenanpassung, Konvertierung zu S/W)
-- ✅ Einstellbare Druckdichte (1-5)
-- ✅ Geräteinformationen auslesen
+A pure Go implementation for controlling Niimbot label printers via USB serial communication. Ported from the Python library [niimprint](https://github.com/kjy00302/niimprint).
 
-## Installation
+## ✨ Features
+
+- ✅ USB serial communication (CDC ACM)
+- ✅ Automatic port detection
+- ✅ Support for Niimbot D110 (40x12mm labels) and D11 (15x30mm labels)
+- ✅ Automatic image processing (scaling, conversion to black & white)
+- ✅ Adjustable print density (1-5)
+- ✅ Device information retrieval
+- ✅ No external dependencies except Go standard library and serial port library
+
+## 📦 Installation
+
+### Build from source
 
 ```bash
+git clone https://github.com/MarkusOderSo/niimgo.git
+cd niimgo
 go build -o niimgo ./cmd
 ```
 
-## Wichtig: Etikettengröße verstehen
+### Or install directly
 
-Der D110 druckt auf **40x12mm Etiketten**:
-- **Druckkopfbreite**: 12mm = 96 Pixel (quer über das Etikett)
-- **Etikettenlänge**: bis zu 40mm = 320 Pixel (in Druckrichtung)
+```bash
+go install github.com/MarkusOderSo/niimgo/cmd@latest
+```
 
-Ihr Bild sollte also **96 Pixel breit** und bis zu **320 Pixel lang** sein.
+## 📋 Prerequisites
+
+- Go 1.21 or higher
+- USB connection to Niimbot printer
+- Linux/macOS (Windows support via Niimbot Windows driver)
+
+## 📐 Understanding Label Sizes
+
+The D110 prints on **40x12mm labels**:
+- **Print head width**: 12mm = 96 pixels (across the label)
+- **Label length**: up to 40mm = 320 pixels (print direction)
+
+Your image should be **96 pixels wide** and up to **320 pixels tall**.
 
 ```
 ┌─────────────────────────────────┐  ↑
-│                                 │  │ 12mm (96 Pixel breit)
-│  Ihr Bild: 96 x ??? Pixel      │  │
+│                                 │  │ 12mm (96 pixels wide)
+│  Your image: 96 x ??? pixels   │  │
 │                                 │  ↓
 └─────────────────────────────────┘
-←────────── 40mm (320 Pixel) ──────→
-        (Druckrichtung →)
+←────────── 40mm (320 pixels) ──────→
+        (Print direction →)
 ```
 
-## Verwendung
+## 🚀 Usage
 
-### Einfaches Drucken (D110 mit 40x12mm Etiketten)
+### Basic printing (D110 with 40x12mm labels)
 
 ```bash
-sudo ./niimgo test.png
+sudo ./niimgo -port /dev/ttyACM0 examples/test_label_40x12mm_96x320.png
 ```
 
-Das Bild wird automatisch auf 96 Pixel Breite skaliert (passend zum 12mm Druckkopf).
+The image will be automatically scaled to 96 pixels width (matching the 12mm print head).
 
-### Mit Optionen
+### With options
 
 ```bash
-# Höhere Druckdichte (1-5)
-sudo ./niimgo -density 5 test.png
+# Higher print density (1-5)
+sudo ./niimgo -port /dev/ttyACM0 -density 5 examples/test_label_40x12mm_96x320.png
 
-# Spezifischen Port angeben
-sudo ./niimgo -port /dev/ttyACM0 test.png
+# Specify port explicitly
+sudo ./niimgo -port /dev/ttyACM0 examples/test_label_40x12mm_96x320.png
 
-# Debug-Modus
-sudo ./niimgo -debug test.png
+# Debug mode
+sudo ./niimgo -port /dev/ttyACM0 -debug examples/test_label_40x12mm_96x320.png
 
-# Nur Geräteinformationen anzeigen
-sudo ./niimgo -info
+# Show device information only
+sudo ./niimgo -port /dev/ttyACM0 -info
 ```
 
-## Bildvorbereitung
+## 🎨 Image Preparation
 
-Für beste Ergebnisse:
+For best results:
 
-1. **Bildgröße**: Erstellen Sie Ihr Bild mit 96 Pixeln Breite
-2. **Höhe**: Bis zu 320 Pixel (= 40mm Etikettenlänge)
-3. **Beispiel**: Ein 96x200 Pixel Bild = 12mm breit × 25mm lang
+1. **Image width**: Create your image with 96 pixels width
+2. **Height**: Up to 320 pixels (= 40mm label length)
+3. **Example**: A 96x200 pixel image = 12mm wide × 25mm long
 
 ```bash
-# Beispiel: Perfekt dimensioniertes Bild
+# Example: Perfectly sized image
 sudo ./niimgo my_label_96x200.png
 
-# Das Programm skaliert automatisch auf 96 Pixel Breite
+# The program automatically scales to 96 pixels width
 sudo ./niimgo any_image.png
 ```
 
-## Unterstützte Etiketten
+## 📋 Supported Labels
 
-| Drucker | Etikett | Druckkopf | Max. Länge | Beispiel |
-|---------|---------|-----------|------------|----------|
+| Printer | Label | Print Head | Max Length | Example |
+|---------|-------|------------|------------|---------|
 | **D110** | 40x12mm | 96 px (12mm) | 320 px (40mm) | `sudo ./niimgo test.png` |
 | **D11** | 15x30mm | 120 px (15mm) | 240 px (30mm) | `sudo ./niimgo -width 120 test.png` |
 
-## Tipps
+## 💡 Tips
 
-- **Bild vorbereiten**: Verwenden Sie Bilder mit 96 Pixeln Breite für optimale Qualität
-- **Bildgröße**: Das Programm skaliert automatisch auf 96 Pixel Breite
-- **Länge**: Ihr Bild kann bis zu 320 Pixel lang sein (= 40mm)
-- **Druckdichte**: Höhere Werte (4-5) für dunklere Ausdrucke
+- **Image preparation**: Use images with 96 pixels width for optimal quality
+- **Auto-scaling**: The program automatically scales to 96 pixels width
+- **Length**: Your image can be up to 320 pixels long (= 40mm)
+- **Print density**: Higher values (4-5) for darker prints
 
-## Technische Details
+## 🔧 Technical Details
 
-Diese Implementierung:
-- Verwendet **serielle USB-Kommunikation** über `/dev/ttyACM*` (CDC ACM)
-- Folgt dem gleichen Protokoll wie die Python-Version
-- Baudrate: 115200
-- Paketformat: `0x55 0x55 [TYPE] [LEN] [DATA...] [CHECKSUM] 0xAA 0xAA`
-- Bildformat: Schwarz/Weiß mit 1-Bit pro Pixel (MSB = links)
-- **D110**: Druckkopf 12mm (96 Pixel breit), Etiketten bis 40mm lang (320 Pixel)
+This implementation:
+- Uses **USB serial communication** via `/dev/ttyACM*` (CDC ACM)
+- Follows the same protocol as the Python version
+- Baud rate: 115200
+- Packet format: `0x55 0x55 [TYPE] [LEN] [DATA...] [CHECKSUM] 0xAA 0xAA`
+- Image format: Black/white with 1-bit per pixel (MSB = left)
+- **D110**: Print head 12mm (96 pixels wide), labels up to 40mm long (320 pixels)
 
-## Fehlerbehebung
+## 🐛 Troubleshooting
 
 ### "No serial ports detected"
 ```bash
-# Prüfen Sie, ob das Gerät erkannt wird
+# Check if device is recognized
 lsusb | grep 3513
 
-# Prüfen Sie verfügbare Ports
+# Check available ports
 ls -la /dev/ttyACM*
 
-# Geben Sie explizit einen Port an
-sudo ./niimgo -port /dev/ttyACM0 test.png
+# Specify port explicitly
+sudo ./niimgo -port /dev/ttyACM0 test_label_40x12mm_96x320.png
 ```
 
 ### "Permission denied"
 ```bash
-# Ausführen mit sudo
-sudo ./niimgo test.png
+# Run with sudo
+sudo ./niimgo test_label_40x12mm_96x320.png
 
-# ODER: Benutzer zur dialout-Gruppe hinzufügen
+# OR: Add user to dialout group
 sudo usermod -a -G dialout $USER
-# Danach neu anmelden
+# Then log out and back in
 ```
 
-### Bild wird am Ende des Etiketts gedruckt
-- Das ist normal - der Drucker druckt in Längsrichtung
-- Das Bild erscheint am Ende des Etiketts, wie es durchläuft
+### Image prints at the end of the label
+- This is normal - the printer prints in the lengthwise direction
+- The image appears at the end of the label as it passes through
 
-### Bild wird zu klein gedruckt
-- Stellen Sie sicher, dass Ihr Bild **96 Pixel breit** ist
-- Das Programm skaliert automatisch, aber vorbereitete Bilder sehen besser aus
-- Erhöhen Sie die Druckdichte mit `-density 5`
+### Image prints too small
+- Make sure your image is **96 pixels wide**
+- The program scales automatically, but prepared images look better
+- Increase print density with `-density 5`
 
-## Lizenz
+## 🙏 Credits
 
-MIT
+Based on the Python implementation by [kjy00302](https://github.com/kjy00302/niimprint).
 
-## Credits
+## 🤝 Contributing
 
-Basiert auf der Python-Implementierung von [kjy00302](https://github.com/kjy00302/niimprint)
+Contributions are welcome! Please feel free to submit a Pull Request.

@@ -1,4 +1,4 @@
-module niimgo
+module github.com/YOUR_USERNAME/niimgo
 
 go 1.21
 

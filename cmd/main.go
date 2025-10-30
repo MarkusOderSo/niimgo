@@ -9,7 +9,7 @@ import (
 	"log"
 	"os"
 
-	"niimgo/niimprint"
+	"github.com/YOUR_USERNAME/niimgo/niimprint"
 
 	"github.com/nfnt/resize"
 )
@@ -31,20 +31,18 @@ func main() {
 		fmt.Println("\nOptions:")
 		flag.PrintDefaults()
 		fmt.Println("\nExamples:")
-		fmt.Println("  niimgo test.png                    # For 40x12mm labels")
-		fmt.Println("  niimgo -density 5 test.png")
+		fmt.Println("  niimgo test_label_40x12mm_96x320.png                    # For 40x12mm labels")
+		fmt.Println("  niimgo -density 5 test_label_40x12mm_96x320.png")
 		fmt.Println("  niimgo -info")
 		fmt.Println("\nNote: D110 prints 12mm wide (96 pixels), up to 40mm long (320 pixels)")
 		fmt.Println("      Your image should be 96 pixels wide (or will be scaled)")
 		os.Exit(1)
 	}
 
-	// Validate density
 	if *densityFlag < 1 || *densityFlag > 5 {
 		log.Fatalf("Density must be between 1 and 5")
 	}
 
-	// Create transport
 	log.Println("Connecting to Niimbot printer...")
 	transport, err := niimprint.NewSerialTransport(*portFlag)
 	if err != nil {
@@ -52,14 +50,12 @@ func main() {
 	}
 	defer transport.Close()
 
-	// Create client
 	client := niimprint.NewPrinterClient(transport)
 	client.SetDebug(*debugFlag)
 	defer client.Close()
 
 	log.Println("Connected successfully!")
 
-	// Get device info
 	if *infoFlag || *debugFlag {
 		log.Println("\nDevice Information:")
 		log.Println("-------------------")
@@ -101,7 +97,6 @@ func main() {
 		return
 	}
 
-	// Load and print image
 	imagePath := flag.Arg(0)
 
 	log.Printf("Loading image: %s", imagePath)
@@ -118,7 +113,6 @@ func main() {
 
 	log.Printf("Image format: %s", format)
 
-	// Get original image dimensions
 	bounds := img.Bounds()
 	imgWidth := bounds.Dx()
 	imgHeight := bounds.Dy()
@@ -126,16 +120,13 @@ func main() {
 	log.Printf("Original image size: %dx%d pixels", imgWidth, imgHeight)
 	log.Printf("Label size: 40x12mm (print head width: 12mm = 96 pixels)")
 
-	// Scale to fit print head width (96 pixels = 12mm)
 	targetWidth := *widthFlag
 	var finalImg image.Image = img
 
 	if imgWidth != targetWidth {
-		// Calculate new height keeping aspect ratio
 		aspectRatio := float64(imgHeight) / float64(imgWidth)
 		targetHeight := uint(float64(targetWidth) * aspectRatio)
 
-		// Limit to max label length
 		maxHeight := uint(*maxHeightFlag)
 		if targetHeight > maxHeight {
 			log.Printf("Warning: Image length (%d pixels) exceeds label length (%d pixels), will be cropped", targetHeight, maxHeight)
@@ -157,30 +148,10 @@ func main() {
 		finalBounds.Dx(), finalBounds.Dy(),
 		float64(finalBounds.Dx())/8.0, float64(finalBounds.Dy())/8.0)
 
-	// Print
 	log.Printf("Starting print with density %d...", *densityFlag)
 	if err := client.PrintImage(finalImg, *densityFlag); err != nil {
 		log.Fatalf("Print failed: %v", err)
 	}
 
 	log.Println("✓ Print completed successfully!")
-}
-
-// rotateImage90 rotates an image 90 degrees clockwise
-func rotateImage90(src image.Image) image.Image {
-	bounds := src.Bounds()
-	width := bounds.Dx()
-	height := bounds.Dy()
-
-	// Create new image with swapped dimensions
-	dst := image.NewRGBA(image.Rect(0, 0, height, width))
-
-	// Rotate 90° clockwise: (x, y) -> (height - 1 - y, x)
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			dst.Set(height-1-y, x, src.At(x, y))
-		}
-	}
-
-	return dst
 }

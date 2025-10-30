@@ -8,29 +8,24 @@ import (
 	"go.bug.st/serial"
 )
 
-// Transport interface for communication
 type Transport interface {
 	Read(length int) ([]byte, error)
 	Write(data []byte) (int, error)
 	Close() error
 }
 
-// SerialTransport implements Transport using serial port
 type SerialTransport struct {
 	port serial.Port
 }
 
-// NewSerialTransport creates a new serial transport
 func NewSerialTransport(portName string) (*SerialTransport, error) {
 	if portName == "" || portName == "auto" {
-		// Auto-detect port
 		ports, err := serial.GetPortsList()
 		if err != nil {
 			return nil, fmt.Errorf("failed to list ports: %w", err)
 		}
 
 		if len(ports) == 0 {
-			// Try common CDC-ACM paths
 			commonPaths := []string{"/dev/ttyACM0", "/dev/ttyACM1", "/dev/ttyUSB0", "/dev/ttyUSB1"}
 			for _, path := range commonPaths {
 				if _, err := os.Stat(path); err == nil {
@@ -45,7 +40,6 @@ func NewSerialTransport(portName string) (*SerialTransport, error) {
 			}
 		} else {
 			if len(ports) > 1 {
-				// Prefer ttyACM devices for Niimbot
 				for _, p := range ports {
 					if len(p) >= 10 && p[:10] == "/dev/ttyAC" {
 						portName = p
@@ -79,10 +73,8 @@ func NewSerialTransport(portName string) (*SerialTransport, error) {
 		return nil, fmt.Errorf("failed to open serial port %s: %w", portName, err)
 	}
 
-	// Set DTR/RTS to activate the device
 	if err := port.SetDTR(true); err == nil {
 		if err := port.SetRTS(true); err == nil {
-			// Wait a bit for device to initialize
 			time.Sleep(100 * time.Millisecond)
 		}
 	}
@@ -92,7 +84,6 @@ func NewSerialTransport(portName string) (*SerialTransport, error) {
 	return &SerialTransport{port: port}, nil
 }
 
-// Read reads up to length bytes from the serial port
 func (t *SerialTransport) Read(length int) ([]byte, error) {
 	buf := make([]byte, length)
 	n, err := t.port.Read(buf)
@@ -102,12 +93,10 @@ func (t *SerialTransport) Read(length int) ([]byte, error) {
 	return buf[:n], nil
 }
 
-// Write writes data to the serial port
 func (t *SerialTransport) Write(data []byte) (int, error) {
 	return t.port.Write(data)
 }
 
-// Close closes the serial port
 func (t *SerialTransport) Close() error {
 	if t.port != nil {
 		return t.port.Close()

@@ -8,14 +8,12 @@ import (
 	"time"
 )
 
-// PrinterClient handles communication with Niimbot printer
 type PrinterClient struct {
 	transport Transport
 	buffer    []byte
 	debug     bool
 }
 
-// NewPrinterClient creates a new printer client
 func NewPrinterClient(transport Transport) *PrinterClient {
 	return &PrinterClient{
 		transport: transport,
@@ -24,17 +22,14 @@ func NewPrinterClient(transport Transport) *PrinterClient {
 	}
 }
 
-// SetDebug enables or disables debug logging
 func (c *PrinterClient) SetDebug(debug bool) {
 	c.debug = debug
 }
 
-// Close closes the transport
 func (c *PrinterClient) Close() error {
 	return c.transport.Close()
 }
 
-// send sends a packet without waiting for response
 func (c *PrinterClient) send(packet *Packet) error {
 	data := packet.ToBytes()
 	if c.debug {
@@ -44,55 +39,41 @@ func (c *PrinterClient) send(packet *Packet) error {
 	return err
 }
 
-// recv receives and parses packets from the buffer
 func (c *PrinterClient) recv() ([]*Packet, error) {
-	// Read data from transport (with timeout)
 	data, err := c.transport.Read(1024)
 	if err != nil {
-		// Timeout is not a fatal error for recv
 		if len(c.buffer) > 0 {
-			// Try to parse what we have
 			return c.parseBufferedPackets(), nil
 		}
 		return nil, err
 	}
 
-	// Append to buffer
 	c.buffer = append(c.buffer, data...)
 
-	// Parse packets from buffer
 	return c.parseBufferedPackets(), nil
 }
 
-// parseBufferedPackets parses packets from the internal buffer
 func (c *PrinterClient) parseBufferedPackets() []*Packet {
 	packets := make([]*Packet, 0)
 
 	for len(c.buffer) > 4 {
-		// Need at least 7 bytes for a valid packet
 		if len(c.buffer) < 7 {
 			break
 		}
 
-		// Check if we have a valid header
 		if c.buffer[0] != 0x55 || c.buffer[1] != 0x55 {
-			// Skip invalid byte
 			c.buffer = c.buffer[1:]
 			continue
 		}
 
-		// Get packet length
-		pktLen := int(c.buffer[3]) + 7 // data length + header(2) + type(1) + len(1) + checksum(1) + footer(2)
+		pktLen := int(c.buffer[3]) + 7
 
-		// Check if we have enough data
 		if len(c.buffer) < pktLen {
 			break
 		}
 
-		// Parse packet
 		packet, err := ParsePacket(c.buffer[:pktLen])
 		if err != nil {
-			// Skip this byte and try again
 			c.buffer = c.buffer[1:]
 			continue
 		}
@@ -108,7 +89,6 @@ func (c *PrinterClient) parseBufferedPackets() []*Packet {
 	return packets
 }
 
-// transceive sends a packet and waits for matching response
 func (c *PrinterClient) transceive(reqCode RequestCode, data []byte, respOffset byte, retries int, waitTime time.Duration) (*Packet, error) {
 	respCode := byte(reqCode) + respOffset
 
@@ -117,16 +97,13 @@ func (c *PrinterClient) transceive(reqCode RequestCode, data []byte, respOffset 
 		return nil, fmt.Errorf("failed to send: %w", err)
 	}
 
-	// Clear buffer before waiting for response
 	c.buffer = c.buffer[:0]
 
-	// Wait for response with retries
 	for i := 0; i < retries; i++ {
 		time.Sleep(waitTime)
 
 		packets, err := c.recv()
 		if err != nil && len(packets) == 0 {
-			// No data yet, continue
 			continue
 		}
 
@@ -140,7 +117,6 @@ func (c *PrinterClient) transceive(reqCode RequestCode, data []byte, respOffset 
 			if pkt.Type == respCode {
 				return pkt, nil
 			}
-			// Log unexpected packet
 			if c.debug {
 				log.Printf("Unexpected packet type: 0x%02x (waiting for 0x%02x)", pkt.Type, respCode)
 			}
@@ -150,7 +126,6 @@ func (c *PrinterClient) transceive(reqCode RequestCode, data []byte, respOffset 
 	return nil, fmt.Errorf("timeout: no response for request code 0x%02x (expected response 0x%02x) after %d retries", reqCode, respCode, retries)
 }
 
-// logBuffer logs a buffer in hex format
 func (c *PrinterClient) logBuffer(prefix string, data []byte) {
 	msg := ""
 	for i, b := range data {
@@ -162,7 +137,6 @@ func (c *PrinterClient) logBuffer(prefix string, data []byte) {
 	log.Printf("%s: %s", prefix, msg)
 }
 
-// GetInfo retrieves device information
 func (c *PrinterClient) GetInfo(infoType InfoType) (interface{}, error) {
 	packet, err := c.transceive(RequestGetInfo, []byte{byte(infoType)}, byte(infoType), 10, 100*time.Millisecond)
 	if err != nil {
@@ -184,7 +158,6 @@ func (c *PrinterClient) GetInfo(infoType InfoType) (interface{}, error) {
 	}
 }
 
-// packetToInt converts packet data to integer (big endian)
 func packetToInt(p *Packet) int {
 	if len(p.Data) == 0 {
 		return 0
@@ -196,7 +169,6 @@ func packetToInt(p *Packet) int {
 	return val
 }
 
-// SetLabelType sets the label type (1=gap, 2=continuous, 3=black mark)
 func (c *PrinterClient) SetLabelType(labelType int) error {
 	if labelType < 1 || labelType > 3 {
 		return fmt.Errorf("label type must be between 1 and 3")
@@ -214,7 +186,6 @@ func (c *PrinterClient) SetLabelType(labelType int) error {
 	return nil
 }
 
-// SetLabelDensity sets print density (1-5, where 5 is darkest)
 func (c *PrinterClient) SetLabelDensity(density int) error {
 	if density < 1 || density > 5 {
 		return fmt.Errorf("density must be between 1 and 5")
@@ -232,7 +203,6 @@ func (c *PrinterClient) SetLabelDensity(density int) error {
 	return nil
 }
 
-// StartPrint starts a print job
 func (c *PrinterClient) StartPrint() error {
 	packet, err := c.transceive(RequestStartPrint, []byte{0x01}, 1, 10, 100*time.Millisecond)
 	if err != nil {
@@ -246,7 +216,6 @@ func (c *PrinterClient) StartPrint() error {
 	return nil
 }
 
-// EndPrint ends a print job
 func (c *PrinterClient) EndPrint() (bool, error) {
 	packet, err := c.transceive(RequestEndPrint, []byte{0x01}, 1, 10, 100*time.Millisecond)
 	if err != nil {
@@ -256,7 +225,6 @@ func (c *PrinterClient) EndPrint() (bool, error) {
 	return len(packet.Data) > 0 && packet.Data[0] != 0, nil
 }
 
-// StartPagePrint starts a page
 func (c *PrinterClient) StartPagePrint() error {
 	packet, err := c.transceive(RequestStartPage, []byte{0x01}, 1, 10, 100*time.Millisecond)
 	if err != nil {
@@ -270,7 +238,6 @@ func (c *PrinterClient) StartPagePrint() error {
 	return nil
 }
 
-// EndPagePrint ends a page
 func (c *PrinterClient) EndPagePrint() error {
 	packet, err := c.transceive(RequestEndPage, []byte{0x01}, 1, 10, 100*time.Millisecond)
 	if err != nil {
@@ -284,7 +251,6 @@ func (c *PrinterClient) EndPagePrint() error {
 	return nil
 }
 
-// SetDimension sets print dimensions (width, height in pixels)
 func (c *PrinterClient) SetDimension(width, height int) error {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, uint16(width))
@@ -302,7 +268,6 @@ func (c *PrinterClient) SetDimension(width, height int) error {
 	return nil
 }
 
-// SetQuantity sets number of copies
 func (c *PrinterClient) SetQuantity(quantity int) error {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, uint16(quantity))
@@ -319,13 +284,10 @@ func (c *PrinterClient) SetQuantity(quantity int) error {
 	return nil
 }
 
-// SendImageData sends image data packet
 func (c *PrinterClient) SendImageData(packet *Packet) error {
 	if err := c.send(packet); err != nil {
 		return err
 	}
 
-	// For image data, we don't always wait for response
-	// The Python implementation just sends without checking response
 	return nil
 }
