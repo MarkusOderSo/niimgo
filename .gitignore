@@ -12,7 +12,6 @@
 *.out
 
 # Build output
-niimgo
 /bin/
 /dist/
 
