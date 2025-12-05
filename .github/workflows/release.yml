@@ -95,9 +95,9 @@ jobs:
           GOARM: ${{ matrix.goarm }}
         run: |
           if [ "${{ matrix.os }}" = "windows" ]; then
-            go build -v -o niimgo-${{ matrix.os }}-${{ matrix.arch }}.exe ./cmd
+            go build -v -o niimgo-${{ matrix.os }}-${{ matrix.arch }}.exe .
           else
-            go build -v -o niimgo-${{ matrix.os }}-${{ matrix.arch }} ./cmd
+            go build -v -o niimgo-${{ matrix.os }}-${{ matrix.arch }} .
           fi
 
       - name: Create archive (Unix)

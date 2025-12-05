@@ -45,13 +45,13 @@ sudo ./niimgo-* -port /dev/ttyACM0 image.png
 ```bash
 git clone https://github.com/MarkusOderSo/niimgo.git
 cd niimgo
-go build -o niimgo ./cmd
+go build -o niimgo .
 ```
 
 ### Or install directly
 
 ```bash
-go install github.com/MarkusOderSo/niimgo/cmd@latest
+go install github.com/MarkusOderSo/niimgo@latest
 ```
 
 ## 📋 Prerequisites
