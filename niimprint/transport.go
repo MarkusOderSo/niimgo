@@ -3,6 +3,7 @@ package niimprint
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"go.bug.st/serial"
@@ -102,4 +103,86 @@ func (t *SerialTransport) Close() error {
 		return t.port.Close()
 	}
 	return nil
+}
+
+// UsbTransport communicates with USB printer class devices (e.g. /dev/usb/lp*).
+// This is required for printers like the Niimbot K3 that use the USB printer
+// interface for bidirectional Niimbot protocol communication.
+type UsbTransport struct {
+	file *os.File
+}
+
+// NewUsbTransport opens a USB printer device. When devicePath is empty or "auto",
+// it scans /dev/usb/lp0 through /dev/usb/lp7 for the first available device.
+func NewUsbTransport(devicePath string) (*UsbTransport, error) {
+	if devicePath == "" || devicePath == "auto" {
+		for i := 0; i < 8; i++ {
+			path := fmt.Sprintf("/dev/usb/lp%d", i)
+			if _, err := os.Stat(path); err == nil {
+				devicePath = path
+				fmt.Printf("Found USB printer device at: %s\n", devicePath)
+				break
+			}
+		}
+		if devicePath == "" || devicePath == "auto" {
+			return nil, fmt.Errorf("no USB printer devices found")
+		}
+	}
+
+	fmt.Printf("Opening USB device: %s\n", devicePath)
+
+	file, err := os.OpenFile(devicePath, os.O_RDWR, 0)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open USB device %s: %w", devicePath, err)
+	}
+
+	return &UsbTransport{file: file}, nil
+}
+
+// usbReadTimeout is the per-read deadline used by UsbTransport.
+const usbReadTimeout = 500 * time.Millisecond
+
+func (t *UsbTransport) Read(length int) ([]byte, error) {
+	if err := t.file.SetReadDeadline(time.Now().Add(usbReadTimeout)); err != nil {
+		return nil, fmt.Errorf("set read deadline: %w", err)
+	}
+	buf := make([]byte, length)
+	n, err := t.file.Read(buf)
+	if err != nil {
+		return nil, err
+	}
+	return buf[:n], nil
+}
+
+func (t *UsbTransport) Write(data []byte) (int, error) {
+	return t.file.Write(data)
+}
+
+func (t *UsbTransport) Close() error {
+	if t.file != nil {
+		return t.file.Close()
+	}
+	return nil
+}
+
+// NewTransport returns the appropriate transport for the given port path.
+// For a path starting with "/dev/usb/lp", a UsbTransport is used (K3 and
+// similar USB printer-class devices). All other paths use a SerialTransport.
+// When portName is empty or "auto", USB printer devices are tried first; if
+// none are found, serial port auto-detection is used (preserving the existing
+// behaviour for D110/D11 printers).
+func NewTransport(portName string) (Transport, error) {
+	if portName != "" && portName != "auto" {
+		if strings.HasPrefix(portName, "/dev/usb/lp") {
+			return NewUsbTransport(portName)
+		}
+		return NewSerialTransport(portName)
+	}
+
+	// Auto-detect: try USB printer devices first (K3), then fall back to serial.
+	if transport, err := NewUsbTransport("auto"); err == nil {
+		return transport, nil
+	}
+
+	return NewSerialTransport("auto")
 }
