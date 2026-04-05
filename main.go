@@ -25,17 +25,18 @@ func main() {
 	flag.Parse()
 
 	if flag.NArg() < 1 && !*infoFlag {
-		fmt.Println("Niimbot D110 Go Client")
-		fmt.Println("======================")
+		fmt.Println("Niimbot Printer Go Client")
+		fmt.Println("========================")
 		fmt.Println("\nUsage: niimgo [options] <image_file>")
 		fmt.Println("\nOptions:")
 		flag.PrintDefaults()
 		fmt.Println("\nExamples:")
-		fmt.Println("  niimgo test_label_40x12mm_96x320.png                    # For 40x12mm labels")
+		fmt.Println("  niimgo test_label_40x12mm_96x320.png                    # For 40x12mm labels (D110)")
 		fmt.Println("  niimgo -density 5 test_label_40x12mm_96x320.png")
 		fmt.Println("  niimgo -info")
+		fmt.Println("  niimgo -port /dev/usb/lp0 -info                         # For K3 via USB")
 		fmt.Println("\nNote: D110 prints 12mm wide (96 pixels), up to 40mm long (320 pixels)")
-		fmt.Println("      Your image should be 96 pixels wide (or will be scaled)")
+		fmt.Println("      K3 uses a USB printer interface (/dev/usb/lp*) instead of a serial port")
 		os.Exit(1)
 	}
 
@@ -44,7 +45,7 @@ func main() {
 	}
 
 	log.Println("Connecting to Niimbot printer...")
-	transport, err := niimprint.NewSerialTransport(*portFlag)
+	transport, err := niimprint.NewTransport(*portFlag)
 	if err != nil {
 		log.Fatalf("Failed to connect: %v", err)
 	}

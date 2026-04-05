@@ -1,6 +1,6 @@
 # niimgo
 
-> A Go client for Niimbot label printers (D110, D11, and compatible models)
+> A Go client for Niimbot label printers (D110, D11, K3, and compatible models)
 
 [![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.21-blue.svg)](https://go.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -9,9 +9,10 @@ A pure Go implementation for controlling Niimbot label printers via USB serial c
 
 ## ✨ Features
 
-- ✅ USB serial communication (CDC ACM)
-- ✅ Automatic port detection
-- ✅ Support for Niimbot D110 (40x12mm labels) and D11 (15x30mm labels)
+- ✅ USB serial communication (CDC ACM) for D110, D11
+- ✅ USB printer interface (`/dev/usb/lp*`) for K3 and similar models
+- ✅ Automatic transport and port detection
+- ✅ Support for Niimbot D110 (40x12mm labels), D11 (15x30mm labels), and K3
 - ✅ Automatic image processing (scaling, conversion to black & white)
 - ✅ Adjustable print density (1-5)
 - ✅ Device information retrieval
@@ -86,7 +87,14 @@ Your image should be **96 pixels wide** and up to **320 pixels tall**.
 sudo ./niimgo -port /dev/ttyACM0 examples/test_label_40x12mm_96x320.png
 ```
 
-The image will be automatically scaled to 96 pixels width (matching the 12mm print head).
+### Basic printing (K3 via USB)
+
+```bash
+sudo ./niimgo -port /dev/usb/lp0 examples/test_label_40x12mm_96x320.png
+```
+
+The tool auto-detects the transport: USB printer devices (`/dev/usb/lp*`) are preferred
+(for K3), falling back to serial/ACM devices (for D110/D11) when no USB printer is found.
 
 ### With options
 
@@ -94,14 +102,20 @@ The image will be automatically scaled to 96 pixels width (matching the 12mm pri
 # Higher print density (1-5)
 sudo ./niimgo -port /dev/ttyACM0 -density 5 examples/test_label_40x12mm_96x320.png
 
+# K3 via USB printer interface
+sudo ./niimgo -port /dev/usb/lp0 -density 5 examples/test_label_40x12mm_96x320.png
+
 # Specify port explicitly
 sudo ./niimgo -port /dev/ttyACM0 examples/test_label_40x12mm_96x320.png
 
 # Debug mode
 sudo ./niimgo -port /dev/ttyACM0 -debug examples/test_label_40x12mm_96x320.png
 
-# Show device information only
-sudo ./niimgo -port /dev/ttyACM0 -info
+# Show device information only (auto-detect)
+sudo ./niimgo -info
+
+# Show device information for K3
+sudo ./niimgo -port /dev/usb/lp0 -info
 ```
 
 ## 🎨 Image Preparation
@@ -120,12 +134,13 @@ sudo ./niimgo my_label_96x200.png
 sudo ./niimgo any_image.png
 ```
 
-## 📋 Supported Labels
+## 📋 Supported Printers
 
-| Printer | Label | Print Head | Max Length | Example |
-|---------|-------|------------|------------|---------|
-| **D110** | 40x12mm | 96 px (12mm) | 320 px (40mm) | `sudo ./niimgo test.png` |
-| **D11** | 15x30mm | 120 px (15mm) | 240 px (30mm) | `sudo ./niimgo -width 120 test.png` |
+| Printer | Interface | Label | Print Head | Max Length | Example |
+|---------|-----------|-------|------------|------------|---------|
+| **D110** | `/dev/ttyACM*` | 40x12mm | 96 px (12mm) | 320 px (40mm) | `sudo ./niimgo test.png` |
+| **D11** | `/dev/ttyACM*` | 15x30mm | 120 px (15mm) | 240 px (30mm) | `sudo ./niimgo -width 120 test.png` |
+| **K3** | `/dev/usb/lp*` | varies | set via `-width` | set via `-maxheight` | `sudo ./niimgo -port /dev/usb/lp0 test.png` |
 
 ## 💡 Tips
 
@@ -137,7 +152,9 @@ sudo ./niimgo any_image.png
 ## 🔧 Technical Details
 
 This implementation:
-- Uses **USB serial communication** via `/dev/ttyACM*` (CDC ACM)
+- Uses **USB serial communication** via `/dev/ttyACM*` (CDC ACM) for D110/D11
+- Uses **USB printer interface** via `/dev/usb/lp*` for K3 and similar models
+- Auto-detects the transport type: USB printer devices are tried first, then serial
 - Follows the same protocol as the Python version
 - Baud rate: 115200
 - Packet format: `0x55 0x55 [TYPE] [LEN] [DATA...] [CHECKSUM] 0xAA 0xAA`
@@ -156,6 +173,26 @@ ls -la /dev/ttyACM*
 
 # Specify port explicitly
 sudo ./niimgo -port /dev/ttyACM0 test_label_40x12mm_96x320.png
+```
+
+### K3: timeouts when connected to /dev/ttyACM0
+
+The K3 printer exposes both a CDC-ACM serial interface (`/dev/ttyACM*`) and a USB
+printer interface (`/dev/usb/lp*`). The Niimbot protocol only works over the USB
+printer interface. Use `-port /dev/usb/lp0` (or the appropriate number) instead:
+
+```bash
+# Check the USB printer device
+ls -la /dev/usb/lp*
+
+# Connect to K3 via USB printer interface
+sudo ./niimgo -port /dev/usb/lp0 -info
+
+# If CUPS is managing the device, you may need to disable/remove the CUPS queue
+# or stop the CUPS service temporarily:
+sudo systemctl stop cups
+sudo ./niimgo -port /dev/usb/lp0 test.png
+sudo systemctl start cups
 ```
 
 ### "Permission denied"
